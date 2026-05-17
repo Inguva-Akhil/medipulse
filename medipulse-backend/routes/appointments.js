@@ -20,20 +20,6 @@ router.post('/', async (req, res) => {
 
     const savedAppointment = await appointment.save();
     
-    // BED ALLOCATION LOGIC
-    const hospital = await Hospital.findById(hospitalId);
-    if (hospital) {
-      if (appointment.severity === 'Severe' && hospital.resources.availableIcuBeds > 0) {
-        hospital.resources.availableIcuBeds -= 1;
-      } else if (hospital.resources.availableBeds > 0) {
-        hospital.resources.availableBeds -= 1;
-      }
-      const updatedHospital = await hospital.save();
-      
-      const io = req.app.get('io');
-      io.emit('hospitalUpdated', updatedHospital);
-    }
-
     // Emit a socket event to the hospital's dashboard
     const io = req.app.get('io');
     io.emit('newAppointment', savedAppointment);
@@ -52,9 +38,25 @@ router.put('/:id/status', async (req, res) => {
     
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
     
+    const oldStatus = appointment.status;
     appointment.status = status;
     const updatedAppointment = await appointment.save();
     
+    // BED ALLOCATION LOGIC
+    if (oldStatus === 'Pending' && status === 'Arrived') {
+       const hospital = await Hospital.findById(appointment.hospitalId);
+       if (hospital) {
+           if (appointment.severity === 'Severe' && hospital.resources.availableIcuBeds > 0) {
+             hospital.resources.availableIcuBeds -= 1;
+           } else if (hospital.resources.availableBeds > 0) {
+             hospital.resources.availableBeds -= 1;
+           }
+           const updatedHospital = await hospital.save();
+           const io = req.app.get('io');
+           io.emit('hospitalUpdated', updatedHospital);
+       }
+    }
+
     // Optionally emit a status update event
     // const io = req.app.get('io');
     // io.emit('appointmentUpdated', updatedAppointment);
@@ -73,21 +75,31 @@ router.put('/:id/doctor', async (req, res) => {
     
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
     
+    const oldStatus = appointment.status;
     appointment.assignedDoctor = doctorName;
     appointment.status = 'Arrived'; // Automatically mark patient as arrived when doctor assigned
     appointment.treatmentStartTime = Date.now();
     const updatedAppointment = await appointment.save();
     
-    // Mark doctor as unavailable
+    // Mark doctor as unavailable and allocate bed
     const hospital = await Hospital.findById(appointment.hospitalId);
     if (hospital) {
       const doc = hospital.doctors.find(d => d.name === doctorName);
       if (doc) {
         doc.isAvailable = false;
-        await hospital.save();
-        const io = req.app.get('io');
-        io.emit('hospitalUpdated', hospital);
       }
+      
+      if (oldStatus === 'Pending') {
+         if (appointment.severity === 'Severe' && hospital.resources.availableIcuBeds > 0) {
+             hospital.resources.availableIcuBeds -= 1;
+         } else if (hospital.resources.availableBeds > 0) {
+             hospital.resources.availableBeds -= 1;
+         }
+      }
+      
+      await hospital.save();
+      const io = req.app.get('io');
+      io.emit('hospitalUpdated', hospital);
     }
 
     // Emit a global event to update the hospital queue
