@@ -1,0 +1,44 @@
+=================================================
+MediPulse Triage & Surveillance System - PPT Content
+=================================================
+
+Slide 1: Summary
+MediPulse is a comprehensive, full-stack medical triage and real-time surveillance platform. It acts as a digital bridge between citizens reporting symptoms, individual hospitals managing bed and doctor availability, and central health authorities monitoring city-wide outbreak anomalies. It leverages live data syncing to optimize emergency response times across the entire healthcare grid.
+
+Slide 2: Problem Statement
+During medical emergencies or localized disease outbreaks, patients often face uncoordinated triage, leading to severe overcrowding at specific hospitals while neighboring facilities have idle resources. Furthermore, the lack of a unified, real-time surveillance network prevents health authorities from detecting critical health crises and allocating emergency resources before they escalate.
+
+Slide 3: Objective
+To build a centralized, real-time ecosystem that intelligently routes incoming patients to optimal hospitals based on severity, empowers hospital staff to efficiently manage dynamic resources (beds, ventilators, specialists), and provides health authorities with an AI-driven early warning system for city-wide health anomalies.
+
+Slide 4: Technologies Used
+- Frontend: React.js, React Router DOM, Recharts (Data Visualization), CSS Variables (Theming).
+- Backend: Node.js, Express.js.
+- Database: MongoDB, Mongoose (Schema-driven ORM).
+- Real-Time Engine: Socket.io (WebSockets).
+- Security: JSON Web Tokens (JWT), bcrypt.
+
+Slide 5: Key Features
+- AI-Driven Patient Triage: Automatically scores patient symptoms (Mild, Moderate, Severe).
+- Dynamic Resource Management: Real-time tracking of Hospital Beds, ICUs, and Ventilators.
+- Automated Doctor Assignment: Specialty-based, round-robin doctor distribution with live availability tracking.
+- Active Outbreak Surveillance: Background AI scripts that detect and flag ZIP code symptom anomalies.
+- Centralized Authority Dashboard: A command center for city-wide monitoring and emergency overrides.
+- Live Traffic Simulator: Background engine continuously pumping realistic patient data into the system.
+
+Slide 6: Measurable Objectives
+
+1. To design a responsive web application:
+Implement a modern, intuitive, and accessible user interface using React.js that functions seamlessly across different devices, utilizing dynamic clinical themes and responsive grid layouts to ensure ease of use during high-stress medical emergencies.
+
+2. To implement CRUD operations:
+Enable full lifecycle data management allowing users to Create (submit symptoms), Read (view dashboards and live queues), Update (assign doctors, update bed counts, discharge patients), and Delete (manage users and resolve alerts) securely.
+
+3. Database connectivity:
+Establish a robust, schema-driven connection to MongoDB utilizing Mongoose. Efficiently handle and scale complex relational data between thousands of simulated Citizens, 200+ Hospitals, Medical Staff, and active Appointments.
+
+4. Secure authentication:
+Implement an ironclad security layer using JSON Web Tokens (JWT) for session management and bcrypt for password hashing. Enforce strict Role-Based Access Control (RBAC) to ensure Citizens, Hospital Staff, and Health Authorities are isolated within their authorized environments.
+
+5. Deployment:
+Structure the application using a decoupled client-server architecture, ensuring environment variables and build scripts are properly configured, making the system fully prepared for seamless containerization and deployment to modern cloud hosting platforms (e.g., Vercel, Render, AWS).

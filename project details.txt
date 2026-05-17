@@ -1,0 +1,165 @@
+=======================================================
+MEDIPULSE TRIAGE & SURVEILLANCE SYSTEM
+Project Overview & Architecture Details
+=======================================================
+
+1. INTRODUCTION
+MediPulse is a full-stack, real-time medical triage and city-wide surveillance system. It is designed to act as a digital bridge between citizens, individual hospitals, and a centralized health authority to optimize emergency medical responses, manage hospital resources, and detect outbreaks early.
+
+2. TECHNOLOGY STACK
+- Frontend: React.js, React Router, Recharts (for analytics), CSS Variables for theming.
+- Backend: Node.js, Express.js.
+- Database: MongoDB & Mongoose (Schema-driven).
+- Real-Time Communication: Socket.io (WebSockets).
+- Real-World Data: Integrated with a custom CSV dataset of 213 hospitals and 2,975 doctors in Bangalore.
+
+3. SECURITY & AUTHENTICATION (RBAC)
+- JWT Authentication: The system uses robust JSON Web Tokens (JWT) for secure session management.
+- Password Hashing: Uses bcrypt to securely encrypt user passwords in the database.
+- Role-Based Access Control (RBAC): The frontend includes strict route guards (`ProtectedAccessRoute.jsx`) that prevent unauthorized access.
+  - Citizens cannot access the Hospital or Authority boards.
+  - Hospitals can only access their specific queue management portals.
+  - Only Health Authority Admins can access the city-wide surveillance dashboard.
+
+4. CORE COMPONENTS
+
+A. The Citizen Portal
+- Allows users to self-report symptoms, location (zip code), and demographic details.
+- Calculates a "Severity" score (Mild, Moderate, Severe) based on the inputs.
+- Automatically routes the patient to the nearest/most suitable hospital's incoming queue.
+
+B. The Hospital Portal
+- Acts as the operational hub for hospital staff.
+- Dynamic Resource Tracking: Staff can monitor and update bed counts (General, ICU, Observation) and ventilators.
+- Smart Triage Queue: Incoming patients are sorted automatically by severity and arrival time.
+- Internal Doctor Assignment: Staff can search their roster of specialty-balanced doctors and assign them to "Moderate" and "Severe" patients instantly.
+- Treatment Pipeline: Tracks patients through "Pending" -> "Treating" -> "Observation" -> "Discharged" phases. Doctor availability automatically syncs based on these phases.
+
+C. The Health Authority Dashboard
+- A "Command Center" for city-wide surveillance.
+- Active Outbreak Alerts: Uses an automated background script to detect spikes in critical symptoms in specific zip codes, pushing real-time AI warnings to the dashboard.
+- Report Trends: A live-updating Recharts graph showing the surge of citizen reports.
+- Severe Case Management (High Priority Inbox): The Authority can directly oversee all "Severe" cases city-wide. If a hospital is overwhelmed, the Authority can step in, find an available specialist, and force-assign them to save the patient's life.
+
+5. REAL-TIME SIMULATION & SOCKET ARCHITECTURE
+- The system includes a `simulateLiveTraffic.js` backend service. It continuously runs in the background, reading from historical datasets, and firing POST requests to simulate live patients walking into hospitals.
+- Socket.io instantly propagates these changes across all connected clients. If a doctor is assigned in the Hospital Portal, they instantly disappear from the Authority's dropdowns. If a new severe patient arrives, the Authority Dashboard graph spikes upward without requiring a page refresh.
+
+6. DATA MIGRATION ENGINE
+- Custom parsing scripts (`importDoctors.js`) group real-world doctors by their exact medical specialty (Cardiology, Neurology, etc.) and distribute them equitably across all registered hospitals. This ensures every hospital has a perfectly balanced multi-disciplinary roster.
+
+7. SYSTEM FLOWCHART
+
+[Citizen / Live Traffic Simulator] 
+         |
+         v
+(Submits Symptoms & Vitals via Web/API)
+         |
+         v
+[AI Severity Engine] ---> Predicts: Mild / Moderate / Severe
+         |
+         +--------------------------------------------------+
+         |                                                  |
+         v                                                  v
+[Hospital Portal (Local)] <--- WebSocket Sync ---> [Authority Dashboard (City-wide)]
+- Receives patient in "Pending" queue              - Receives "Severe" cases in priority inbox
+- Staff assigns available Specialist               - Graph charts live incoming cases
+- Patient moved to "Treating" phase                - AI script scans for zip code anomalies
+- Beds/Ventilators updated dynamically             - Issues "Outbreak Alerts" instantly
+- Doctor marked "unavailable"                      - Can force-assign doctors if hospital fails
+         |
+         v
+[Discharge Pipeline]
+- Patient discharged
+- Bed freed up & Doctor marked "available" again
+- WebSocket emits 'hospitalUpdated' to all clients
+
+
+8. FOLDER STRUCTURE
+
+medipulse/
+|
++--- medipulse-backend/                 # Node.js + Express API Server
+|    |
+|    +--- models/                       # Mongoose Database Schemas
+|    |    |-- Alert.js                  # Outbreak alert schema
+|    |    |-- Appointment.js            # Patient triage queue and state
+|    |    |-- Hospital.js               # Hospital resources, beds, doctors array
+|    |    |-- SymptomReport.js          # Raw symptom submissions
+|    |    +-- User.js                   # Authenticated user profiles (RBAC)
+|    |
+|    +--- routes/                       # Express API Endpoints
+|    |    |-- appointments.js           # Assignment, treatment, discharge logic
+|    |    |-- auth.js                   # JWT Login/Register routes
+|    |    |-- hospitals.js              # Hospital resource management
+|    |    +-- surveillance.js           # Alert and analytical graph data
+|    |
+|    |-- importDoctors.js               # Script: Balances Bangalore doctors by specialty
+|    |-- importHospitals.js             # Script: Ingests 213 Bangalore hospitals
+|    |-- simulateLiveTraffic.js         # Script: Pumps realistic live patients into the DB
+|    +-- server.js                      # Core server and Socket.io setup
+|
++--- medipulse-frontend/                # React.js UI Client
+|    |
+|    +--- src/
+|    |    |
+|    |    +--- components/              
+|    |    |    |-- Navbar.jsx           # Global navigation
+|    |    |    +-- ProtectedAccessRoute.jsx # Secure JWT Role-Based route guard
+|    |    |
+|    |    +--- context/
+|    |    |    +-- AuthContext.jsx      # Global state for user sessions and tokens
+|    |    |
+|    |    +--- pages/
+|    |    |    |-- CitizenView.jsx      # Symptom reporter and personal history
+|    |    |    |-- Dashboard.jsx        # Authority Command Center UI
+|    |    |    |-- HospitalPortal.jsx   # Hospital Triage & Bed Management UI
+|    |    |    |-- Login.jsx            # Secure login form
+|    |    |    |-- Register.jsx         # Secure registration form
+|    |    |    +-- Profile.jsx          # User profile settings
+|    |    |
+|    |    |-- App.jsx                   # React Router setup
+|    |    +-- index.css                 # Vanilla CSS Theme system (Light/Dark clinical modes)
+|    |
+|    +-- package.json
+|
++--- hospital_data_bangalore.csv        # Core dataset
++--- hospital_doctors_bangalore.csv     # Core dataset
++--- project details.txt                # This documentation file
+
+9. DETAILED ARCHITECTURE DIAGRAM
+
+=============================================================================================
+|                                      FRONTEND (REACT.JS)                                  |
+|                                                                                           |
+|  [Citizen Portal]              [Hospital Portal]             [Authority Dashboard]        |
+|  - Self-reporting              - Triage Queue                - City-Wide Map/Alerts       |
+|  - AI Severity Score           - Doctor Assignment           - Severe Case Overrides      |
+|  - Real-time Wait Times        - Resource Toggles            - Data Visualization         |
+|                                                                                           |
+|        ^                             ^                               ^                    |
+|        | (HTTP / REST)               | (WebSocket Sync)              | (WebSocket Sync)   |
+|        v                             v                               v                    |
+=============================================================================================
+|                                       BACKEND (NODE.JS)                                   |
+|                                                                                           |
+|   +-----------------------+     +------------------------+     +-----------------------+  |
+|   |   Express.js API      |     |     Socket.io Hub      |     |  Background Services  |  |
+|   |  - /api/auth          | <-> |  - Emits: newAlert     | <-> | - simulateLiveTraffic |  |
+|   |  - /api/appointments  |     |  - Emits: doctorAssigned     | - importDoctors       |  |
+|   |  - /api/hospitals     |     |  - Emits: hospitalUpdate     | - AI Alert Generator  |  |
+|   +-----------------------+     +------------------------+     +-----------------------+  |
+|                                                                                           |
+|        ^                             ^                               ^                    |
+|        | (Mongoose ORM)              |                               |                    |
+|        v                             v                               v                    |
+=============================================================================================
+|                                      DATABASE (MONGODB)                                   |
+|                                                                                           |
+|  Collections:                                                                             |
+|  [Users] -> Stores credentials, RBAC (Citizen, Hospital, Authority)                       |
+|  [Hospitals] -> Stores 213 Bangalore facilities, Beds, Ventilators, Specialist Arrays     |
+|  [Appointments] -> Stores active triage queues, severity, timestamps, assigned doctors    |
+|  [Alerts] -> Stores generated ZIP code outbreak warnings                                  |
+|                                                                                           |
+=============================================================================================
