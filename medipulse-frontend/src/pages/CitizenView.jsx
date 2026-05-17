@@ -22,6 +22,7 @@ const CitizenView = () => {
   // UI State
   const [step, setStep] = useState(1);
   const [expandedId, setExpandedId] = useState(null);
+  const [activeTreatments, setActiveTreatments] = useState([]);
 
   // Booking State
   const [bookingName, setBookingName] = useState(user ? user.name : '');
@@ -73,21 +74,49 @@ const CitizenView = () => {
     return () => socket.disconnect();
   }, []);
 
-  // Simple Triage Engine
-  const performTriage = (symptomsInput, allHospitals) => {
+  // Enhanced Triage Engine
+  const getNeededTreatments = (symptomsInput, severityInput) => {
     const s = symptomsInput.toLowerCase();
-    let neededTreatments = [];
+    let needed = [];
 
-    if (s.includes('heart') || s.includes('chest')) neededTreatments.push('Cardiology');
-    if (s.includes('baby') || s.includes('child')) neededTreatments.push('Pediatrics');
-    if (s.includes('bone') || s.includes('break') || s.includes('fracture')) neededTreatments.push('Orthopedics');
-    if (s.includes('cancer') || s.includes('tumor')) neededTreatments.push('Oncology');
-    if (s.includes('pregnant') || s.includes('maternity')) neededTreatments.push('Maternity');
-    if (severity === 'Severe') neededTreatments.push('Emergency Care');
+    if (severityInput === 'Severe' || s.includes('accident') || s.includes('bleeding') || s.includes('emergency')) needed.push('Emergency Care');
+    if (s.includes('heart') || s.includes('chest') || s.includes('breath')) needed.push('Cardiologist');
+    if (s.includes('bone') || s.includes('break') || s.includes('fracture') || s.includes('joint') || s.includes('back')) needed.push('Orthopedist');
+    if (s.includes('baby') || s.includes('child') || s.includes('infant')) needed.push('Pediatrician');
+    if (s.includes('headache') || s.includes('dizzy') || s.includes('faint') || s.includes('brain')) needed.push('Neurologist');
+    if (s.includes('skin') || s.includes('rash') || s.includes('itch') || s.includes('acne')) needed.push('Dermatologist');
+    if (s.includes('stomach') || s.includes('vomit') || s.includes('nausea') || s.includes('digest')) needed.push('Gastroenterologist');
+    if (s.includes('eye') || s.includes('vision') || s.includes('blur')) needed.push('Ophthalmologist');
+    if (s.includes('tooth') || s.includes('teeth') || s.includes('gum') || s.includes('dental')) needed.push('Dentist');
+    if (s.includes('cancer') || s.includes('tumor')) needed.push('Oncologist');
+    if (s.includes('pregnant') || s.includes('maternity')) needed.push('Gynecologist');
 
-    // Sort hospitals by how many matched treatments they have + Resource Availability Boost
+    if (s.includes('fever') || s.includes('cough') || s.includes('cold') || s.includes('pain') || s.includes('weak') || s.includes('tired')) {
+        needed.push('General Physician'); 
+    }
+
+    if (needed.length === 0) {
+        needed.push('General Physician');
+    }
+    
+    return [...new Set(needed)];
+  };
+
+  const performTriage = (symptomsInput, allHospitals) => {
+    const neededTreatments = getNeededTreatments(symptomsInput, severity);
+    setActiveTreatments(neededTreatments);
+
     const scoredHospitals = allHospitals.map(h => {
-      let matchCount = neededTreatments.filter(t => h.treatments?.includes(t)).length;
+      let matchCount = 0;
+      
+      neededTreatments.forEach(t => {
+         if (t === 'Emergency Care' && h.treatments?.includes(t)) {
+             matchCount += 1;
+         }
+         if (h.doctors?.some(d => d.specialty === t)) {
+             matchCount += 1;
+         }
+      });
       
       // Resource-based priority scoring
       if (severity === 'Severe') {
@@ -105,10 +134,8 @@ const CitizenView = () => {
       return { ...h, matchCount };
     });
 
-    // Filter to only those with at least 1 match or positive score, then sort
     const filtered = scoredHospitals.filter(h => h.matchCount > 0).sort((a, b) => b.matchCount - a.matchCount);
     
-    // If no hospital matched exactly, just return all sorted by general bed availability
     if (filtered.length === 0) {
       return allHospitals.sort((a, b) => (b.resources?.availableBeds || 0) - (a.resources?.availableBeds || 0));
     }
@@ -381,20 +408,19 @@ const CitizenView = () => {
                     {isExpanded && (
                       <div className="animate-fade-in" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         
-                        {/* Treatments Provided */}
-                        {hospital.treatments && hospital.treatments.length > 0 && (
+                        {/* Specialists Available */}
+                        {((hospital.doctors && hospital.doctors.length > 0) || (hospital.treatments && hospital.treatments.includes('Emergency Care'))) && (
                           <div>
                             <h5 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <HeartPulse size={14} className="text-primary" /> Specialists Available
                             </h5>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                              {hospital.treatments.map((treatment, idx) => {
-                                const isMatchedTreatment = symptom.toLowerCase().includes('heart') && treatment === 'Cardiology' || 
-                                                           symptom.toLowerCase().includes('bone') && treatment === 'Orthopedics' ||
-                                                           severity === 'Severe' && treatment === 'Emergency Care'; // very rough highlight logic
+                              {['Emergency Care', ...new Set((hospital.doctors || []).map(d => d.specialty))].map((specialty, idx) => {
+                                if (specialty === 'Emergency Care' && !hospital.treatments?.includes('Emergency Care')) return null;
+                                const isMatchedTreatment = activeTreatments.includes(specialty);
                                 return (
                                   <span key={idx} style={{ background: isMatchedTreatment ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)', color: isMatchedTreatment ? 'white' : 'var(--text-main)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.75rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    {treatment}
+                                    {specialty}
                                   </span>
                                 );
                               })}
